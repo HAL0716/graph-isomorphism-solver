@@ -117,7 +117,7 @@ bool Isomorphism::verifySubMapping(
     const int srcB = maps[srcA];
 
     auto checkEdges = [&](const AdjList& adj1, const AdjList& adj2) {
-        for (int dstA : adj1.at(srcA)) {
+        for (int dstA : adj1[srcA]) {
             int dstB = maps[dstA];
 
             if (dstB != -1) {
