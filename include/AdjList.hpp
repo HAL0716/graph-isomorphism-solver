@@ -19,6 +19,7 @@ public:
     // --- Basic operations ---
     void insert(int src, int dst);
     void erase(int node);
+    AdjList getReversed() const;
 
     // --- Map-like access ---
     std::unordered_set<int>& operator[](int node);

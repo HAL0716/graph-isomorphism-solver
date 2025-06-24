@@ -35,6 +35,14 @@ void AdjList::erase(int node) {
     nodeSetValid = false;
 }
 
+AdjList AdjList::getReversed() const {
+    AdjList reversed;
+    for (const auto& [src, dsts] : adjList)
+        for (int dst : dsts)
+            reversed.insert(dst, src);
+    return reversed;
+}
+
 // --- Map-like access ---
 std::unordered_set<int>& AdjList::operator[](int node) {
     nodeSetValid = false;
