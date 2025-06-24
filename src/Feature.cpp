@@ -4,8 +4,6 @@
 #include <stdexcept>
 #include <algorithm>
 
-#include <iostream>
-
 namespace Graph {
 
 std::map<Feat, NodeSet> GraphFeat::gen(const AdjList& adjFwd) {

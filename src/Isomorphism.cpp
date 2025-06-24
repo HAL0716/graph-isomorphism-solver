@@ -25,8 +25,6 @@ bool Isomorphism::solver(const AdjList& adjA, const AdjList& adjB, NodeMap& maps
     const AdjList revB = adjB.getReversed();
 
     return matchGroups(adjA, revA, adjB, revB, groups, nodeToGroup, maps);
-
-    return true;
 }
 
 bool Isomorphism::setGroups(
