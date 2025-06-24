@@ -25,6 +25,8 @@ bool Isomorphism::solver(const AdjList& adjA, const AdjList& adjB, NodeMap& maps
     const AdjList revB = adjB.getReversed();
 
     return matchGroups(adjA, revA, adjB, revB, groups, nodeToGroup, maps);
+
+    return true;
 }
 
 bool Isomorphism::setGroups(
@@ -117,7 +119,7 @@ bool Isomorphism::verifySubMapping(
     const int srcB = maps[srcA];
 
     auto checkEdges = [&](const AdjList& adj1, const AdjList& adj2) {
-        for (int dstA : adj1.at(srcA)) {
+        for (int dstA : adj1[srcA]) {
             int dstB = maps[dstA];
 
             if (dstB != -1) {

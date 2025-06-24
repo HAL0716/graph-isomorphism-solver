@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <algorithm>
 
+#include <iostream>
+
 namespace Graph {
 
 std::map<Feat, NodeSet> GraphFeat::gen(const AdjList& adjFwd) {
@@ -30,7 +32,7 @@ std::map<Feat, NodeSet> GraphFeat::gen(const AdjList& adjFwd) {
 std::map<Degs, NodeSet> GraphFeat::genDegGroups(const AdjList& adjFwd, const AdjList& adjBwd, const NodeSet& nodeSet) {
     std::map<Degs, NodeSet> degGroups;
     for (int node : nodeSet)
-        degGroups[{(int)adjFwd.at(node).size(), (int)adjBwd.at(node).size()}].insert(node);
+        degGroups[{(int)adjFwd[node].size(), (int)adjBwd[node].size()}].insert(node);
     return degGroups;
 }
 
@@ -44,7 +46,7 @@ std::map<int, std::multiset<int>> GraphFeat::genFeatState(int node, const NodeSe
     visited[node] = true;
 
     auto propagate = [&](const AdjList& adj, int src, int dist, int step) {
-        for (int dst : adj.at(src)) {
+        for (int dst : adj[src]) {
             int newDist = dist + step;
             NodeToDset[dst].insert(newDist);
             if (!visited[dst]) {

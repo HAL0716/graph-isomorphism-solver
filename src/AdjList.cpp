@@ -50,10 +50,9 @@ std::unordered_set<int>& AdjList::operator[](int node) {
 }
 
 const std::unordered_set<int>& AdjList::operator[](int node) const {
+    static const std::unordered_set<int> emptySet;
     auto it = adjList.find(node);
-    if (it == adjList.end())
-        throw std::out_of_range("Node not found.");
-    return it->second;
+    return it != adjList.end() ? it->second : emptySet;
 }
 
 std::unordered_set<int>& AdjList::at(int node) {
