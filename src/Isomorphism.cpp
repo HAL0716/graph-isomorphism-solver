@@ -9,8 +9,7 @@ bool Isomorphism::solver(const AdjList& adjA, const AdjList& adjB) {
 }
 
 bool Isomorphism::solver(const AdjList& adjA, const AdjList& adjB, NodeMap& maps) {
-    const auto featA = GraphFeat::gen(adjA);
-    const auto featB = GraphFeat::gen(adjB);
+    const auto featA = Feature::gen(adjA), featB = Feature::gen(adjB);
 
     GroupList groups;
     std::vector<NodeSet> nodeToGroup;
@@ -18,18 +17,16 @@ bool Isomorphism::solver(const AdjList& adjA, const AdjList& adjB, NodeMap& maps
     if (!setGroups(featA, featB, groups, nodeToGroup))
         return false;
 
-    const auto nodeSet = adjA.nodes();
-    maps.assign(*std::max_element(nodeSet.begin(), nodeSet.end()) + 1, -1);
+    const AdjList revA = adjA.getReversed(), revB = adjB.getReversed();
 
-    const AdjList revA = adjA.getReversed();
-    const AdjList revB = adjB.getReversed();
+    maps.assign(Utils::max(adjA.getNodes()) + 1, -1);
 
     return matchGroups(adjA, revA, adjB, revB, groups, nodeToGroup, maps);
 }
 
 bool Isomorphism::setGroups(
-    const std::map<Feat, NodeSet>& featA,
-    const std::map<Feat, NodeSet>& featB,
+    const std::map<FeatSig, NodeSet>& featA,
+    const std::map<FeatSig, NodeSet>& featB,
     GroupList& groups,
     std::vector<NodeSet>& nodeToGroup
 ) {
@@ -47,26 +44,22 @@ bool Isomorphism::setGroups(
         if (fA != fB || nodesA.size() != nodesB.size())
             return false;
 
-        NodeVec sortedA(nodesA.begin(), nodesA.end());
-        NodeVec sortedB(nodesB.begin(), nodesB.end());
+        groups.emplace_back(Utils::sort(nodesA), Utils::sort(nodesB));
 
-        std::sort(sortedA.begin(), sortedA.end());
-        std::sort(sortedB.begin(), sortedB.end());
-
-        groups.emplace_back(sortedA, sortedB);
-
-        int maxIdx = *std::max_element(sortedA.begin(), sortedA.end());
+        int maxIdx = Utils::max(nodesA);
         if ((int)nodeToGroup.size() <= maxIdx)
             nodeToGroup.resize(maxIdx + 1);
 
-        for (int n : sortedA)
-            nodeToGroup[n] = NodeSet(sortedB.begin(), sortedB.end());
+        for (int n : nodesA)
+            nodeToGroup[n] = nodesB;
     }
 
-    std::sort(groups.begin(), groups.end(),
+    groups = Utils::sort(
+        groups,
         [](const GroupPair& a, const GroupPair& b) {
             return a.first.size() < b.first.size();
-        });
+        }
+    );
 
     return true;
 }
@@ -114,31 +107,19 @@ bool Isomorphism::verifySubMapping(
     int srcA,
     const std::vector<NodeSet>& nodeToGroup
 ) {
-    const int srcB = maps[srcA];
+    int srcB = maps[srcA];
 
-    auto checkEdges = [&](const AdjList& adj1, const AdjList& adj2) {
-        for (int dstA : adj1[srcA]) {
+    auto check = [&](const AdjList& adjA, const AdjList& adjB) {
+        for (int dstA : adjA[srcA]) {
             int dstB = maps[dstA];
-
-            if (dstB != -1) {
-                if (!adj2.hasEdge(srcB, dstB))
-                    return false;
-            } else {
-                bool hasValid = std::any_of(
-                    nodeToGroup[dstA].begin(),
-                    nodeToGroup[dstA].end(),
-                    [&](int candB) {
-                        return adj2.hasEdge(srcB, candB);
-                    }
-                );
-                if (!hasValid)
-                    return false;
-            }
+            if ((dstB != -1 && !adjB.hasEdge(srcB, dstB)) ||
+                (dstB == -1 && !Utils::common(nodeToGroup[dstA], adjB[srcB])))
+                return false;
         }
         return true;
     };
 
-    return checkEdges(adjA, adjB) && checkEdges(revA, revB);
+    return check(adjA, adjB) && check(revA, revB);
 }
 
 bool Isomorphism::verifyMapping(const AdjList& adjA, const AdjList& adjB, const NodeMap& maps) {
