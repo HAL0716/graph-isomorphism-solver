@@ -9,7 +9,7 @@ std::map<FeatSig, NodeSet> Feature::gen(const AdjList& adj) {
     const NodeSet nodes = adj.getNodes();
     const AdjList rev = adj.getReversed();
 
-    std::unordered_map<Degs, NodeSet> degToNodes;
+    std::map<Degs, NodeSet> degToNodes;
     for (int n : nodes)
         degToNodes[{(int)adj[n].size(), (int)rev[n].size()}].insert(n);
 
