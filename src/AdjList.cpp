@@ -5,19 +5,24 @@
 namespace Graph {
 
 // --- Private ---
-void AdjList::getNodeSet() {
-    nodeSet.clear();
+void AdjList::genNodes() {
+    nodes.clear();
     for (const auto& [n, dsts] : adjList) {
-        nodeSet.insert(n);
-        nodeSet.insert(dsts.begin(), dsts.end());
+        nodes.insert(n);
+        nodes.insert(dsts.begin(), dsts.end());
     }
-    nodeSetValid = true;
+    nodesValid = true;
+}
+
+void AdjList::ensureNodes() const {
+    if (!nodesValid)
+        const_cast<AdjList*>(this)->genNodes();
 }
 
 // --- Basic operations ---
 void AdjList::insert(int src, int dst) {
     adjList[src].insert(dst);
-    nodeSetValid = false;
+    nodesValid = false;
 }
 
 void AdjList::erase(int node) {
@@ -32,7 +37,7 @@ void AdjList::erase(int node) {
     for (int n : toErase)
         adjList.erase(n);
 
-    nodeSetValid = false;
+    nodesValid = false;
 }
 
 AdjList AdjList::getReversed() const {
@@ -45,7 +50,7 @@ AdjList AdjList::getReversed() const {
 
 // --- Map-like access ---
 std::unordered_set<int>& AdjList::operator[](int node) {
-    nodeSetValid = false;
+    nodesValid = false;
     return adjList[node];
 }
 
@@ -56,7 +61,7 @@ const std::unordered_set<int>& AdjList::operator[](int node) const {
 }
 
 std::unordered_set<int>& AdjList::at(int node) {
-    nodeSetValid = false;
+    nodesValid = false;
     return adjList.at(node);
 }
 
@@ -66,9 +71,8 @@ const std::unordered_set<int>& AdjList::at(int node) const {
 
 // --- Node/Edge presence checks ---
 bool AdjList::hasNode(int node) const {
-    if (!nodeSetValid)
-        const_cast<AdjList*>(this)->getNodeSet();
-    return nodeSet.count(node) > 0;
+    ensureNodes();
+    return nodes.count(node) > 0;
 }
 
 bool AdjList::hasEdge(int src, int dst) const {
@@ -84,28 +88,25 @@ auto AdjList::begin() const -> decltype(adjList.begin()) { return adjList.begin(
 auto AdjList::end() const -> decltype(adjList.end()) { return adjList.end(); }
 
 // --- Information access ---
-const std::unordered_set<int>& AdjList::nodes() const {
-    if (!nodeSetValid)
-        const_cast<AdjList*>(this)->getNodeSet();
-    return nodeSet;
+const std::unordered_set<int>& AdjList::getNodes() const {
+    ensureNodes();
+    return nodes;
 }
 
 std::size_t AdjList::size() const {
-    if (!nodeSetValid)
-        const_cast<AdjList*>(this)->getNodeSet();
-    return nodeSet.size();
+    ensureNodes();
+    return nodes.size();
 }
 
 bool AdjList::empty() const {
-    if (!nodeSetValid)
-        const_cast<AdjList*>(this)->getNodeSet();
-    return nodeSet.empty();
+    ensureNodes();
+    return nodes.empty();
 }
 
 void AdjList::clear() {
     adjList.clear();
-    nodeSet.clear();
-    nodeSetValid = true;
+    nodes.clear();
+    nodesValid = true;
 }
 
 // --- Comparison operators ---
@@ -118,13 +119,7 @@ bool AdjList::operator!=(const AdjList& other) const {
 }
 
 bool AdjList::operator<(const AdjList& other) const {
-    std::vector<int> nodes1(nodes().begin(), nodes().end());
-    std::vector<int> nodes2(other.nodes().begin(), other.nodes().end());
-
-    std::sort(nodes1.begin(), nodes1.end());
-    std::sort(nodes2.begin(), nodes2.end());
-
-    return nodes1 < nodes2;
+    return Utils::sort(getNodes()) < Utils::sort(other.getNodes());
 }
 
 } // namespace Graph

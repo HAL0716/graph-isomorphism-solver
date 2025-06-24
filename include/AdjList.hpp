@@ -4,16 +4,20 @@
 #include <unordered_set>
 #include <cstddef>
 #include <stdexcept>
+#include "Utils.hpp"
 
 namespace Graph {
 
+using NodeSet = std::unordered_set<int>;
+
 class AdjList {
 private:
-    std::unordered_map<int, std::unordered_set<int>> adjList;
-    std::unordered_set<int> nodeSet;
-    bool nodeSetValid = false;
+    std::unordered_map<int, NodeSet> adjList;
+    NodeSet nodes;
+    bool nodesValid = false;
 
-    void getNodeSet();
+    void genNodes();
+    void ensureNodes() const;
 
 public:
     // --- Basic operations ---
@@ -22,10 +26,10 @@ public:
     AdjList getReversed() const;
 
     // --- Map-like access ---
-    std::unordered_set<int>& operator[](int node);
-    const std::unordered_set<int>& operator[](int node) const;
-    std::unordered_set<int>& at(int node);
-    const std::unordered_set<int>& at(int node) const;
+    NodeSet& operator[](int node);
+    const NodeSet& operator[](int node) const;
+    NodeSet& at(int node);
+    const NodeSet& at(int node) const;
 
     // --- Node/Edge presence checks ---
     bool hasNode(int node) const;
@@ -38,7 +42,7 @@ public:
     auto end() const -> decltype(adjList.end());
 
     // --- Information access ---
-    const std::unordered_set<int>& nodes() const;
+    const NodeSet& getNodes() const;
     std::size_t size() const;
     bool empty() const;
     void clear();

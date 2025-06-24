@@ -1,16 +1,16 @@
 #pragma once
 
-#include "AdjList.hpp"
-#include "Feature.hpp"
 #include <vector>
 #include <unordered_set>
+#include "Utils.hpp"
+#include "AdjList.hpp"
+#include "Feature.hpp"
 
 namespace Graph {
 
-using NodeSet = std::unordered_set<int>;
-using NodeVec = std::vector<int>;
 using NodeMap = std::vector<int>;
-using GroupPair = std::pair<NodeVec, NodeVec>;
+using Group = std::vector<int>;
+using GroupPair = std::pair<Group, Group>;
 using GroupList = std::vector<GroupPair>;
 
 class Isomorphism {
@@ -20,8 +20,8 @@ public:
 
 private:
     static bool setGroups(
-        const std::map<Feat, NodeSet>& featA,
-        const std::map<Feat, NodeSet>& featB,
+        const std::map<FeatSig, NodeSet>& featA,
+        const std::map<FeatSig, NodeSet>& featB,
         GroupList& groups,
         std::vector<NodeSet>& nodeToGroup
     );
