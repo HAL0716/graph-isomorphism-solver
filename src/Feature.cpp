@@ -1,60 +1,68 @@
 #include "Feature.hpp"
 #include <queue>
 #include <vector>
+#include <stdexcept>
 #include <algorithm>
 
 namespace Graph {
 
-std::map<Feat, NodeSet> GroupByFeat::gen(const AdjList& adj) {
-    const NodeSet nodes = adj.getNodes();
-    const AdjList rev = adj.getReversed();
-
-    std::map<Degs, NodeSet> degToNodes;
-    for (int n : nodes)
-        degToNodes[{(int)adj[n].size(), (int)rev[n].size()}].insert(n);
+std::map<Feat, NodeSet> GraphFeat::gen(const AdjList& adjFwd) {
+    const NodeSet nodeSet = adjFwd.nodes();
+    const AdjList adjBwd = adjFwd.getReversed();
+    const auto degGroups = genDegGroups(adjFwd, adjBwd, nodeSet);
 
     std::map<int, Feat> nodeToFeat;
-    for (const auto& [deg, dsts] : degToNodes) {
-        for (int src : dsts) {
-            auto state = genFeatState(src, nodes, adj, rev);
-            for (const auto& [dst, dset] : state)
-                nodeToFeat[dst][deg].insert(dset);
+    for (const auto& [deg, group] : degGroups) {
+        for (int node : group) {
+            auto state = genFeatState(node, nodeSet, adjFwd, adjBwd);
+            for (const auto& [target, dset] : state)
+                nodeToFeat[target][deg].insert(dset);
         }
     }
 
-    std::map<Feat, NodeSet> featToNodes;
-    for (const auto& [n, feat] : nodeToFeat)
-        featToNodes[feat].insert(n);
+    std::map<Feat, NodeSet> featGroups;
+    for (const auto& [node, feat] : nodeToFeat)
+        featGroups[feat].insert(node);
 
-    return featToNodes;
+    return featGroups;
 }
 
-std::map<int, DSet> GroupByFeat::genFeatState(int node, const NodeSet& nodes, const AdjList& adj, const AdjList& rev) {
-    std::map<int, DSet> nodeToDset;
-    std::queue<std::pair<int, int>> q;
-    std::vector<bool> visited(Utils::max(nodes) + 1, false);
+std::map<Degs, NodeSet> GraphFeat::genDegGroups(const AdjList& adjFwd, const AdjList& adjBwd, const NodeSet& nodeSet) {
+    std::map<Degs, NodeSet> degGroups;
+    for (int node : nodeSet)
+        degGroups[{(int)adjFwd[node].size(), (int)adjBwd[node].size()}].insert(node);
+    return degGroups;
+}
 
-    nodeToDset[node].insert(0);
+std::map<int, std::multiset<int>> GraphFeat::genFeatState(int node, const NodeSet& nodeSet, const AdjList& adjFwd, const AdjList& adjBwd) {
+    std::map<int, std::multiset<int>> NodeToDset;
+    std::queue<std::pair<int, int>> q;
+    std::vector<bool> visited(*std::max_element(nodeSet.begin(), nodeSet.end()) + 1, false);
+
+    NodeToDset[node].insert(0);
     q.emplace(node, 0);
     visited[node] = true;
 
-    auto propagate = [&](const AdjList& adj, int src, int dist) {
+    auto propagate = [&](const AdjList& adj, int src, int dist, int step) {
         for (int dst : adj[src]) {
-            nodeToDset[dst].insert(dist);
+            int newDist = dist + step;
+            NodeToDset[dst].insert(newDist);
             if (!visited[dst]) {
                 visited[dst] = true;
-                q.emplace(dst, dist);
+                q.emplace(dst, newDist);
             }
         }
     };
 
     while (!q.empty()) {
         auto [src, dist] = q.front(); q.pop();
-        if (dist >= 0) propagate(adj, src, dist + 1);
-        if (dist <= 0) propagate(rev, src, dist - 1);
+        if (dist >= 0)
+            propagate(adjFwd, src, dist, +1);
+        if (dist <= 0)
+            propagate(adjBwd, src, dist, -1);
     }
 
-    return nodeToDset;
+    return NodeToDset;
 }
 
 } // namespace Graph
