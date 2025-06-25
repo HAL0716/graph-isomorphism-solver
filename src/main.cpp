@@ -10,9 +10,8 @@ int main() {
     adjA.insert(4,5);
     adjA.insert(5,6);
     adjA.insert(6,1);
-    adjA.insert(1,3);
-    adjA.insert(3,5);
-    adjA.insert(5,1);
+    adjA.insert(2,5);
+    adjA.insert(3,6);
 
     Graph::AdjList adjB;
     adjB.insert(1,6);
@@ -21,9 +20,8 @@ int main() {
     adjB.insert(4,3);
     adjB.insert(5,4);
     adjB.insert(6,5);
-    adjB.insert(1,5);
-    adjB.insert(5,3);
-    adjB.insert(3,1);
+    adjB.insert(5,2);
+    adjB.insert(6,3);
 
     std::cout << (Graph::Isomorphism::solver(adjA, adjB) ? "Yes" : "No") << std::endl;
  
