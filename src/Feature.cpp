@@ -3,9 +3,6 @@
 #include <vector>
 #include <algorithm>
 
-#include <iostream>
-#include <map>
-
 namespace Graph {
 
 std::map<FeatSig, NodeSet> Feature::gen(const AdjList& adj) {
@@ -16,29 +13,14 @@ std::map<FeatSig, NodeSet> Feature::gen(const AdjList& adj) {
     for (int n : nodes)
         degToNodes[{(int)adj[n].size(), (int)rev[n].size()}].insert(n);
 
-    std::map<int, std::map<int, Graph::DSet>> debugData;
-
     std::unordered_map<int, FeatSig> nodeToFeat;
     for (const auto& [deg, dNodes] : degToNodes) {
         for (int n : dNodes) {
             auto state = genFeatState(n, nodes, adj, rev);
-            for (const auto& [dst, dset] : state) {
+            for (const auto& [dst, dset] : state)
                 nodeToFeat[dst][deg].insert(dset);
-                debugData[n][dst] = dset;
-            }
         }
     }
-
-    for (const auto& [n1, data1] : debugData) {
-        std::cout << "--- " << n1 << " ---" << std::endl;
-        for (const auto& [n2, data2] : data1) {
-            std::cout << n2 << " :";
-            for (int n3 : data2)
-                std::cout << " " << n3;
-            std::cout << std::endl;
-        }
-    }
-    std::cout << std::endl;
 
     std::map<FeatSig, NodeSet> featToNodes;
     for (const auto& [n, feat] : nodeToFeat)
@@ -47,27 +29,56 @@ std::map<FeatSig, NodeSet> Feature::gen(const AdjList& adj) {
     return featToNodes;
 }
 
-std::unordered_map<int, DSet> Feature::genFeatState(int n, const NodeSet& nodes, const AdjList& adj, const AdjList& rev) {
+struct StateQueue {
+    using State = std::pair<int, int>;
+
+    std::queue<State> queue;
+    std::set<State> seen;
+    std::vector<bool> visited;
+
+    StateQueue(int maxNode) : visited(maxNode + 1, false) {}
+
+    bool push(int node, int dist) {
+        State s = {node, dist}, rs = {node, -dist};
+        bool canPush = !visited[node] || seen.count(rs);
+
+        if (canPush) {
+            visited[node] = true;
+            seen.insert(s);
+            queue.push(s);
+        }
+        
+        return canPush;
+    }
+
+    bool empty() const {
+        return queue.empty();
+    }
+
+    State pop() {
+        State front = queue.front();
+        queue.pop();
+        return front;
+    }
+};
+
+std::unordered_map<int, DSet> Feature::genFeatState(int n, const NodeSet& nodes, const AdjList& adj, const AdjList& rev){
     std::unordered_map<int, DSet> nodeToDset;
-    std::queue<std::pair<int, int>> q;
-    std::vector<bool> visited(Utils::max(nodes) + 1, false);
+    StateQueue stateQueue(Utils::max(nodes));
 
     nodeToDset[n].insert(0);
-    q.emplace(n, 0);
-    visited[n] = true;
+    stateQueue.push(n, 0);
 
-    auto propagate = [&](const AdjList& adj, int src, int dist) {
-        for (int dst : adj[src]) {
+    auto propagate = [&](const AdjList& adjlist, int src, int dist) {
+        for (int dst : adjlist[src]) {
             nodeToDset[dst].insert(dist);
-            if (!visited[dst]) {
-                visited[dst] = true;
-                q.emplace(dst, dist);
-            }
+            stateQueue.push(dst, dist);
         }
     };
 
-    while (!q.empty()) {
-        auto [src, dist] = q.front(); q.pop();
+    while (!stateQueue.empty()) {
+        auto [src, dist] = stateQueue.pop();
+
         if (dist >= 0)
             propagate(adj, src, dist + 1);
         if (dist <= 0)
