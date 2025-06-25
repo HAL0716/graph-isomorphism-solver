@@ -3,6 +3,9 @@
 #include <vector>
 #include <algorithm>
 
+#include <iostream>
+#include <map>
+
 namespace Graph {
 
 std::map<FeatSig, NodeSet> Feature::gen(const AdjList& adj) {
@@ -13,14 +16,29 @@ std::map<FeatSig, NodeSet> Feature::gen(const AdjList& adj) {
     for (int n : nodes)
         degToNodes[{(int)adj[n].size(), (int)rev[n].size()}].insert(n);
 
+    std::map<int, std::map<int, Graph::DSet>> debugData;
+
     std::unordered_map<int, FeatSig> nodeToFeat;
     for (const auto& [deg, dNodes] : degToNodes) {
         for (int n : dNodes) {
             auto state = genFeatState(n, nodes, adj, rev);
-            for (const auto& [dst, dset] : state)
+            for (const auto& [dst, dset] : state) {
                 nodeToFeat[dst][deg].insert(dset);
+                debugData[n][dst] = dset;
+            }
         }
     }
+
+    for (const auto& [n1, data1] : debugData) {
+        std::cout << "--- " << n1 << " ---" << std::endl;
+        for (const auto& [n2, data2] : data1) {
+            std::cout << n2 << " :";
+            for (int n3 : data2)
+                std::cout << " " << n3;
+            std::cout << std::endl;
+        }
+    }
+    std::cout << std::endl;
 
     std::map<FeatSig, NodeSet> featToNodes;
     for (const auto& [n, feat] : nodeToFeat)
