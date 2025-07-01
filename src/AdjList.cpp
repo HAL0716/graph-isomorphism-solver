@@ -40,6 +40,17 @@ void AdjList::erase(int node) {
     nodesValid = false;
 }
 
+void AdjList::loadCSV(const std::string& filepath) {
+    for (const auto& data : Utils::loadCSV(filepath)) {
+        if (data.size() != 2) {
+            std::cerr << "[Warning] Invalid file: " << filepath << std::endl;
+            continue;
+        }
+        adjList[data[0]].insert(data[1]);
+    }
+    nodesValid = false;
+}
+
 AdjList AdjList::getReversed() const {
     AdjList reversed;
     for (const auto& [src, dsts] : adjList)

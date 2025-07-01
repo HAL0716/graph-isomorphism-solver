@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <cstddef>
@@ -23,6 +24,7 @@ public:
     // --- Basic operations ---
     void insert(int src, int dst);
     void erase(int node);
+    void loadCSV(const std::string& filepath);
     AdjList getReversed() const;
 
     // --- Map-like access ---
