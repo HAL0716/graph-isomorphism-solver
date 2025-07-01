@@ -1,7 +1,7 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Iinclude -Itests
 
-SRC = $(wildcard src/*.cpp)
+SRC = $(wildcard src2/*.cpp)
 TESTS = $(wildcard tests/test_*.cpp)
 OBJ_DIR = build
 
