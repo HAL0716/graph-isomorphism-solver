@@ -1,29 +1,58 @@
 #include <iostream>
+#include <vector>
+#include <string>
+#include <filesystem>
 #include "AdjList.hpp"
 #include "Isomorphism.hpp"
 
+std::vector<std::vector<std::string>> groupIsomorphicGraphs(const std::set<std::string>& filepaths) {
+    std::vector<std::vector<std::string>> groupSet;
+    size_t current = 0;
+    const size_t total = filepaths.size();
+
+    for (const auto& filepath : filepaths) {
+        ++current;
+        std::cout << "[" << current << "/" << total << "] " << Utils::getBasename(filepath) << std::endl;
+
+        Graph::AdjList targetGraph;
+        targetGraph.loadCSV(filepath);
+
+        bool foundGroup = false;
+
+        for (auto& group : groupSet) {
+            const std::string& representativePath = group.front();
+            Graph::AdjList representativeGraph;
+            representativeGraph.loadCSV(representativePath);
+
+            std::cout << " <-> " << Utils::getBasename(representativePath) << " : " << std::flush;
+
+            if (Graph::Isomorphism::solver(representativeGraph, targetGraph)) {
+                std::cout << "Yes" << std::endl;
+                group.push_back(filepath);
+                foundGroup = true;
+                break;
+            } else {
+                std::cout << "No" << std::endl;
+            }
+        }
+
+        if (!foundGroup)
+            groupSet.emplace_back(std::vector<std::string>{filepath});
+    }
+
+    return groupSet;
+}
+
 int main() {
-    Graph::AdjList adjA;
-    adjA.insert(1,2);
-    adjA.insert(2,3);
-    adjA.insert(3,4);
-    adjA.insert(4,5);
-    adjA.insert(5,6);
-    adjA.insert(6,1);
-    adjA.insert(1,4);
-    adjA.insert(6,3);
+    const std::string dataDir = "data";
 
-    Graph::AdjList adjB;
-    adjB.insert(1,6);
-    adjB.insert(2,1);
-    adjB.insert(3,2);
-    adjB.insert(4,3);
-    adjB.insert(5,4);
-    adjB.insert(6,5);
-    adjB.insert(5,2);
-    adjB.insert(6,3);
+    for (const auto& files : Utils::getFilesSet(dataDir)) {
+        if (files.empty()) continue;
 
-    std::cout << (Graph::Isomorphism::solver(adjA, adjB) ? "Yes" : "No") << std::endl;
- 
+        auto groups = groupIsomorphicGraphs(files);
+
+        std::cout << "Found " << groups.size() << " groups:\n";
+    }
+
     return 0;
 }

@@ -33,3 +33,5 @@
 
 # VSCode settings folder
 .vscode/
+/data/*
+!/data/test/
