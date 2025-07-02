@@ -12,10 +12,8 @@ void showProgress(const std::string& fileA, const std::string& fileB) {
               << " <-> " << fs::path(fileB).stem().string() << std::endl;
 }
 
-using Group = std::vector<std::string>;
-
-std::vector<Group> groupIsomorphicGraphs(const std::vector<std::string>& filepaths) {
-    std::vector<Group> groups;
+std::vector<std::vector<std::string>> groupIsomorphicGraphs(const std::set<std::string>& filepaths) {
+    std::vector<std::vector<std::string>> groups;
 
     for (const auto& filepath : filepaths) {
         Graph::AdjList adjA;
@@ -44,39 +42,20 @@ std::vector<Group> groupIsomorphicGraphs(const std::vector<std::string>& filepat
     return groups;
 }
 
-std::vector<std::string> getCSVFiles(const std::string& directory) {
-    std::vector<std::string> csvFiles;
-
-    if (!fs::exists(directory) || !fs::is_directory(directory)) {
-        std::cerr << "[Error] Directory does not exist: " << directory << std::endl;
-        return csvFiles;
-    }
-
-    for (const auto& entry : fs::directory_iterator(directory)) {
-        if (entry.is_regular_file() && entry.path().extension() == ".csv") {
-            csvFiles.push_back(entry.path().string());
-        }
-    }
-
-    return csvFiles;
-}
-
 int main() {
     const std::string dataDir = "data";
-    auto files = getCSVFiles(dataDir);
 
-    if (files.empty()) {
-        std::cerr << "[Error] No CSV files found in directory: " << dataDir << std::endl;
-        return 1;
-    }
+    for (const auto& files : Utils::getFilesSet(dataDir)) {
+        if (files.empty()) continue;
 
-    auto groups = groupIsomorphicGraphs(files);
+        auto groups = groupIsomorphicGraphs(files);
 
-    std::cout << "Found " << groups.size() << " groups:\n";
-    for (size_t i = 0; i < groups.size(); ++i) {
-        std::cout << "Group " << (i + 1) << ":\n";
-        for (const auto& f : groups[i]) {
-            std::cout << "  " << fs::path(f).filename().string() << "\n";
+        std::cout << "Found " << groups.size() << " groups:\n";
+        for (size_t i = 0; i < groups.size(); ++i) {
+            std::cout << "Group " << (i + 1) << ":\n";
+            for (const auto& f : groups[i]) {
+                std::cout << "  " << fs::path(f).filename().string() << "\n";
+            }
         }
     }
 
