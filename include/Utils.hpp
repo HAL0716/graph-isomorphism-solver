@@ -7,6 +7,7 @@
 #include <vector>
 #include <set>
 #include <unordered_set>
+#include <map>
 #include <algorithm>
 #include <filesystem>
 
@@ -14,131 +15,126 @@ namespace Utils {
 
 namespace fs = std::filesystem;
 
-// Returns a sorted vector from any container
-template <typename C>
-inline std::vector<typename C::value_type> sort(const C& c) {
-    std::vector<typename C::value_type> r(c.begin(), c.end());
-    std::sort(r.begin(), r.end());
-    return r;
+// Sorts container contents and returns a vector
+template <typename Container>
+inline std::vector<typename Container::value_type> sort(const Container& c) {
+    std::vector<typename Container::value_type> sorted(c.begin(), c.end());
+    std::sort(sorted.begin(), sorted.end());
+    return sorted;
 }
 
-template <typename C, typename Compare>
-inline std::vector<typename C::value_type> sort(const C& c, Compare comp) {
-    std::vector<typename C::value_type> r(c.begin(), c.end());
-    std::sort(r.begin(), r.end(), comp);
-    return r;
+template <typename Container, typename Compare>
+inline std::vector<typename Container::value_type> sort(const Container& c, Compare comp) {
+    std::vector<typename Container::value_type> sorted(c.begin(), c.end());
+    std::sort(sorted.begin(), sorted.end(), comp);
+    return sorted;
 }
 
-// Returns the maximum element in a container (by reference)
-template <typename C>
-inline decltype(auto) max(const C& c) {
+// Returns the max element in a container
+template <typename Container>
+inline decltype(auto) max(const Container& c) {
     return *std::max_element(c.begin(), c.end());
 }
 
-// Returns true if two containers have any common element
-template <typename C1, typename C2>
-inline bool common(const C1& a, const C2& b) {
-    if (a.size() > b.size())
-        return common(b, a);
+// Checks if two containers have any common elements
+template <typename Container1, typename Container2>
+inline bool common(const Container1& a, const Container2& b) {
+    if (a.size() > b.size()) return common(b, a);
 
-    std::unordered_set<typename C1::value_type> s(a.begin(), a.end());
-    for (const auto& e : b)
-        if (s.count(e))
-            return true;
-
+    std::unordered_set<typename Container1::value_type> setA(a.begin(), a.end());
+    for (const auto& e : b) {
+        if (setA.count(e)) return true;
+    }
     return false;
 }
 
+// Extracts filename stem from path
 inline std::string getBasename(const std::string& pathStr) {
     fs::path path(pathStr);
-    if (path.has_stem()) {
-        return path.stem().string();
-    } else {
-        return path.filename().string();
-    }
+    return path.stem().string();
 }
 
-// Returns all files with given extension in a directory
+// Gets all files with specified extension in a directory
 inline std::set<std::string> getFiles(const std::string& dirPath, const std::string& ext = ".csv") {
     std::set<std::string> filePaths;
 
     try {
         if (!fs::is_directory(dirPath)) {
-            std::cerr << "[Error] Not a valid directory: " << dirPath << '\n';
+            std::cerr << "[getFiles] Error: Not a directory: " << dirPath << '\n';
             return filePaths;
         }
 
         for (const auto& entry : fs::directory_iterator(dirPath)) {
-            if (!entry.is_regular_file()) continue;
-
-            const auto& path = entry.path();
-            if (path.has_extension() && path.extension() == ext)
-                filePaths.insert(path.string());
+            if (entry.is_regular_file()) {
+                const auto& path = entry.path();
+                if (path.has_extension() && path.extension() == ext) {
+                    filePaths.insert(path.string());
+                }
+            }
         }
+
     } catch (const std::exception& e) {
-        std::cerr << "[Exception] Failed to access directory: " << e.what() << '\n';
+        std::cerr << "[getFiles] Exception: " << e.what() << '\n';
     }
 
     return filePaths;
 }
 
-// Groups file sets per subdirectory
-inline std::set<std::set<std::string>> getFilesSet(const std::string& dirPath, const std::string& ext = ".csv") {
-    std::set<std::set<std::string>> result;
+// Groups files under subdirectories with given extension
+inline std::map<std::string, std::set<std::string>> getFilesSet(const std::string& dirPath, const std::string& ext = ".csv") {
+    std::map<std::string, std::set<std::string>> result;
 
     try {
-        if (!fs::is_directory(dirPath)) {
-            std::cerr << "[Error] Not a valid parent directory: " << dirPath << '\n';
+        if (!fs::exists(dirPath) || !fs::is_directory(dirPath)) {
+            std::cerr << "[getFilesSet] Error: Invalid directory: " << dirPath << '\n';
             return result;
         }
 
         for (const auto& entry : fs::directory_iterator(dirPath)) {
             if (entry.is_directory()) {
-                std::set<std::string> files = getFiles(entry.path().string(), ext);
+                const auto subDirPath = entry.path().string();
+                auto files = getFiles(subDirPath, ext);
                 if (!files.empty())
-                    result.insert(std::move(files));
+                    result[getBasename(subDirPath)] = std::move(files);
             }
         }
+
     } catch (const std::exception& e) {
-        std::cerr << "[Exception] Failed to process subdirectories: " << e.what() << '\n';
+        std::cerr << "[getFilesSet] Exception: " << e.what() << '\n';
     }
 
     return result;
 }
 
-// Reads a CSV file with integer entries, no header.
+// Loads CSV file as vector of integer vectors (no header)
 inline std::vector<std::vector<int>> loadCSV(const std::string& filepath) {
     std::vector<std::vector<int>> result;
 
     std::ifstream file(filepath);
     if (!file) {
-        std::cerr << "[Error] Failed to open file: " << filepath << '\n';
+        std::cerr << "[loadCSV] Error: Failed to open file: " << filepath << '\n';
         return result;
     }
 
     std::string line;
     while (std::getline(file, line)) {
-        if (line.empty())
-            continue;
+        if (line.empty()) continue;
 
         std::vector<int> row;
         std::istringstream ss(line);
         std::string cell;
 
         while (std::getline(ss, cell, ',')) {
-            if (cell.empty())
-                continue;
+            if (cell.empty()) continue;
 
             try {
-                int value = std::stoi(cell);
-                row.push_back(value);
+                row.push_back(std::stoi(cell));
             } catch (const std::invalid_argument&) {
-                std::cerr << "[Warning] Invalid integer found in file: " << cell << '\n';
+                std::cerr << "[loadCSV] Warning: Invalid integer: " << cell << '\n';
             }
         }
 
-        if (!row.empty())
-            result.push_back(std::move(row));
+        if (!row.empty()) result.emplace_back(std::move(row));
     }
 
     return result;
