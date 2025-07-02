@@ -4,6 +4,7 @@
 #include <filesystem>
 #include "AdjList.hpp"
 #include "Isomorphism.hpp"
+#include "Timer.hpp"
 
 std::vector<std::vector<std::string>> groupIsomorphicGraphs(const std::set<std::string>& filepaths) {
     std::vector<std::vector<std::string>> groupSet;
@@ -12,7 +13,8 @@ std::vector<std::vector<std::string>> groupIsomorphicGraphs(const std::set<std::
 
     for (const auto& filepath : filepaths) {
         ++current;
-        std::cout << "[" << current << "/" << total << "] " << Utils::getBasename(filepath) << std::endl;
+        std::cout << Timer::now() << std::endl
+                  << "[" << current << "/" << total << "] " << Utils::getBasename(filepath) << std::endl;
 
         Graph::AdjList targetGraph;
         targetGraph.loadCSV(filepath);
