@@ -40,6 +40,8 @@ std::vector<std::vector<std::string>> groupIsomorphicGraphs(const std::set<std::
 
         if (!foundGroup)
             groupSet.emplace_back(std::vector<std::string>{filepath});
+        
+        std::cout << std::endl;
     }
 
     return groupSet;
@@ -48,12 +50,12 @@ std::vector<std::vector<std::string>> groupIsomorphicGraphs(const std::set<std::
 int main() {
     const std::string dataDir = "data";
 
-    for (const auto& files : Utils::getFilesSet(dataDir)) {
+    for (const auto& [label, files] : Utils::getFilesSet(dataDir)) {
         if (files.empty()) continue;
 
         auto groups = groupIsomorphicGraphs(files);
 
-        std::cout << "Found " << groups.size() << " groups:\n";
+        std::cout << label << " : " << groups.size() << std::endl << std::endl;
     }
 
     return 0;
