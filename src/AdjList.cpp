@@ -26,7 +26,7 @@ void AdjList::insert(int src, int dst) {
 }
 
 void AdjList::erase(int node) {
-    std::unordered_set<int> toErase{node};
+    NodeSet toErase{node};
 
     for (auto& [n, dsts] : adjList) {
         dsts.erase(node);
@@ -60,23 +60,23 @@ AdjList AdjList::getReversed() const {
 }
 
 // --- Map-like access ---
-std::unordered_set<int>& AdjList::operator[](int node) {
+NodeSet& AdjList::operator[](int node) {
     nodesValid = false;
     return adjList[node];
 }
 
-const std::unordered_set<int>& AdjList::operator[](int node) const {
-    static const std::unordered_set<int> emptySet;
+const NodeSet& AdjList::operator[](int node) const {
+    static const NodeSet emptySet;
     auto it = adjList.find(node);
     return it != adjList.end() ? it->second : emptySet;
 }
 
-std::unordered_set<int>& AdjList::at(int node) {
+NodeSet& AdjList::at(int node) {
     nodesValid = false;
     return adjList.at(node);
 }
 
-const std::unordered_set<int>& AdjList::at(int node) const {
+const NodeSet& AdjList::at(int node) const {
     return adjList.at(node);
 }
 
@@ -99,7 +99,7 @@ auto AdjList::begin() const -> decltype(adjList.begin()) { return adjList.begin(
 auto AdjList::end() const -> decltype(adjList.end()) { return adjList.end(); }
 
 // --- Information access ---
-const std::unordered_set<int>& AdjList::getNodes() const {
+const NodeSet& AdjList::getNodes() const {
     ensureNodes();
     return nodes;
 }
