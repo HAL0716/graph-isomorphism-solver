@@ -29,6 +29,138 @@ std::map<FeatSig, NodeSet> Feature::gen(const AdjList& adj) {
     return featToNodes;
 }
 
+struct VectorHash {
+    size_t operator()(const std::vector<int>& v) const {
+        size_t seed = v.size();
+        for (int i : v)
+            seed ^= std::hash<int>{}(i) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
+
+class Encoder {
+private:
+    std::unordered_map<std::string, int> table_;
+    int nextId_ = 0;
+
+public:
+    int encode(const std::string& label) {
+        auto [it, inserted] = table_.insert({label, nextId_});
+        if (inserted) ++nextId_;
+        return it->second;
+    }
+
+    int size() const { return nextId_; }
+};
+
+std::vector<std::vector<int>> Feature::genTuples(const NodeSet& nodes, int k) {
+    std::vector<std::vector<int>> tuples;
+    std::vector<int> indices(k, 0);
+    std::vector<int> tuple(k);
+    std::vector<int> nodeVec(nodes.begin(), nodes.end());
+    int n = nodeVec.size();
+
+    while (true) {
+        for (int i = 0; i < k; ++i)
+            tuple[i] = nodeVec[indices[i]];
+        tuples.push_back(tuple);
+
+        int pos = k - 1;
+        while (pos >= 0 && ++indices[pos] == n)
+            indices[pos--] = 0;
+        if (pos < 0) break;
+    }
+    return tuples;
+}
+
+std::vector<int> Feature::genkWL(const AdjList& adj, int k, int maxIter) {
+    const NodeSet& nodes = adj.getNodes();
+    const AdjList& rev = adj.getReversed();
+
+    std::vector<std::vector<int>> tuples = genTuples(nodes, k);
+    std::cout << "Generated " << tuples.size() << " tuples.\n";
+
+    // 初期ラベル生成
+    auto genLabelInit = [&](const std::vector<int>& S) -> std::string {
+        std::ostringstream oss;
+        for (int n : S)
+            oss << "(" << adj[n].size() << "," << rev[n].size() << ")-";
+
+        for (int i = 0; i < k; ++i)
+            for (int j = i + 1; j < k; ++j)
+                oss << (adj.hasEdge(S[i],S[j]) ? "T" : "F") << (rev.hasEdge(S[i],S[j]) ? "T" : "F") << "-";
+
+        return oss.str();
+    };
+
+    // 更新ラベル生成
+    auto genLabelUpdate = [&](const std::vector<int>& S, const std::unordered_map<std::vector<int>, int, VectorHash>& color) -> std::string {
+        NodeSet adjNodes;
+        for (int n : S) {
+            const auto& out = adj[n];
+            const auto& in  = rev[n];
+            adjNodes.insert(out.begin(), out.end());
+            adjNodes.insert(in.begin(), in.end());
+        }
+
+        std::vector<std::string> adjColors;
+        adjColors.reserve(adjNodes.size());
+
+        std::vector<int> Sx = S;
+        std::vector<int> sig;
+        sig.reserve(k);
+
+        for (int x : adjNodes) {
+            sig.clear();
+            for (int i = 0; i < k; ++i) {
+                Sx[i] = x;
+                sig.push_back(color.at(Sx));
+                Sx[i] = S[i];
+            }
+            adjColors.emplace_back("(" + Utils::join(sig, ",") + ")");
+        }
+
+        std::sort(adjColors.begin(), adjColors.end());
+
+        std::ostringstream oss;
+        oss << color.at(S) << ":";
+        for (const auto& s : adjColors)
+            oss << s << ",";
+
+        return oss.str();
+    };
+
+    std::unordered_map<std::vector<int>, int, VectorHash> color;
+    Encoder enc;
+    for (const auto& S : tuples)
+        color[S] = enc.encode(genLabelInit(S));
+
+    std::cout << "iter 0 : " << enc.size() << " colors\n";
+
+    for (int iter = 0; iter < maxIter; ++iter) {
+        std::unordered_map<std::vector<int>, int, VectorHash> updatedColor;
+        Encoder updateEnc;
+
+        for (const auto& S : tuples)
+            updatedColor[S] = updateEnc.encode(genLabelUpdate(S, color));
+
+        std::cout << "iter " << iter + 1 << " : " << updateEnc.size() << " colors\n";
+
+        if (updatedColor == color)
+            break;
+
+        color = std::move(updatedColor);
+    }
+
+    std::vector<int> result;
+    result.reserve(color.size());
+    for (const auto& [_, cid] : color)
+        result.push_back(cid);
+    std::sort(result.begin(), result.end());
+
+    return result;
+}
+
 struct StateQueue {
     using State = std::pair<int, int>;
 
