@@ -15,6 +15,19 @@ namespace Utils {
 
 namespace fs = std::filesystem;
 
+template <typename Container>
+std::string join(const Container& c, const std::string& delim) {
+    std::ostringstream oss;
+    auto it = c.begin();
+    if (it != c.end()) {
+        oss << *it;
+        ++it;
+    }
+    for (; it != c.end(); ++it)
+        oss << delim << *it;
+    return oss.str();
+}
+
 // Sorts container contents and returns a vector
 template <typename Container>
 inline std::vector<typename Container::value_type> sort(const Container& c) {
