@@ -29,64 +29,14 @@ std::map<FeatSig, NodeSet> Feature::gen(const AdjList& adj) {
     return featToNodes;
 }
 
-struct State {
-    std::vector<int> map;
-    int cnt;
-
-    explicit State(int n) : 
-        map(n + 1, 0), cnt(0) {}
-
-    int& operator[](int v) { 
-        return map[v];
-    }
-
-    std::vector<int> ids(const NodeSet& ns) const {
-        std::vector<int> res;
-        for (int v : ns)
-            res.push_back(map[v]);
-        std::sort(res.begin(), res.end());
-        return res;
+struct VectorHash {
+    size_t operator()(const std::vector<int>& v) const {
+        size_t seed = v.size();
+        for (int i : v)
+            seed ^= std::hash<int>{}(i) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
     }
 };
-
-std::map<int, NodeSet> Feature::gen1WL(const AdjList& adj) {
-    const NodeSet nodes = adj.getNodes();
-    const AdjList rev = adj.getReversed();
-    const int N = Utils::max(nodes);
-
-    State state(N);
-    std::map<Degs, int> deg2id;
-
-    for (int v : nodes) {
-        Degs deg = { (int)adj[v].size(), (int)rev[v].size() };
-        auto [it, ins] = deg2id.emplace(deg, state.cnt);
-        if (ins) ++state.cnt;
-        state[v] = it->second;
-    }
-
-    while (true) {
-        State next(N);
-        std::map<std::tuple<int, std::vector<int>, std::vector<int>>, int> key2id;
-
-        for (int v : nodes) {
-            auto key = std::make_tuple(state[v], state.ids(adj[v]), state.ids(rev[v]));
-            auto [it, ins] = key2id.emplace(key, next.cnt);
-            if (ins) ++next.cnt;
-            next[v] = it->second;
-        }
-
-        if (next.cnt == state.cnt)
-            break;
-        
-        state = std::move(next);
-    }
-
-    std::map<int, NodeSet> res;
-    for (int v : nodes)
-        res[state[v]].insert(v);
-    
-    return res;
-}
 
 class Encoder {
 private:
@@ -103,70 +53,98 @@ public:
     int size() const { return nextId_; }
 };
 
-std::vector<int> Feature::gen2WL(const AdjList& adj, int maxIter) {
-    NodeSet nodes = adj.getNodes();
-    AdjList rev = adj.getReversed();
+std::vector<std::vector<int>> Feature::genTuples(const NodeSet& nodes, int k) {
+    std::vector<std::vector<int>> tuples;
+    std::vector<int> indices(k, 0);
+    std::vector<int> tuple(k);
+    std::vector<int> nodeVec(nodes.begin(), nodes.end());
+    int n = nodeVec.size();
 
-    // 取得:出次数，入次数
-    auto deg = [&](int u) -> std::pair<int, int> {
-        return {(int)adj[u].size(), (int)rev[u].size()};
-    };
+    while (true) {
+        for (int i = 0; i < k; ++i)
+            tuple[i] = nodeVec[indices[i]];
+        tuples.push_back(tuple);
 
-    // 生成:初期ラベル
-    auto genLabelInit = [&](int u, int v) -> std::string {
-        auto [du_out, du_in] = deg(u);
-        auto [dv_out, dv_in] = deg(v);
-        return (u == v ? "T" : "F") + std::string("-") +
-               (adj.hasEdge(u, v) ? "T" : "F") + "-" +
-               std::to_string(du_out) + "-" + std::to_string(du_in) + "-" +
-               std::to_string(dv_out) + "-" + std::to_string(dv_in);
-    };
-
-    // 生成:更新ラベル
-    auto genLabelUpdate = [&](int u, int v, std::map<std::pair<int, int>, int>& color) -> std::string {
-        std::vector<int> outColors, inColors;
-        for (int x : adj[u]) outColors.push_back(color[{x,v}]);
-        for (int x : rev[v])  inColors.push_back(color[{u,x}]);
-
-        std::sort(outColors.begin(), outColors.end());
-        std::sort(inColors.begin(), inColors.end());
-
-        std::ostringstream sig;
-        sig << color[{u, v}] << "-";
-        for (int c : outColors) sig << c << ",";
-        sig << "-";
-        for (int c : inColors) sig << c << ",";
-        return sig.str();
-    };
-
-    // std::cout << std::endl << "2-WL" << std::endl;
-
-    // ラベルの初期化
-    std::map<std::pair<int, int>, int> color;
-    Encoder enc;
-
-    for (int u : nodes) {
-        for (int v : nodes) {
-            std::string label = genLabelInit(u, v);
-            color[{u, v}] = enc.encode(label);
-        }
+        int pos = k - 1;
+        while (pos >= 0 && ++indices[pos] == n)
+            indices[pos--] = 0;
+        if (pos < 0) break;
     }
+    return tuples;
+}
 
-    // std::cout << enc.size() << std::endl;
+std::vector<int> Feature::genkWL(const AdjList& adj, int k, int maxIter) {
+    const NodeSet& nodes = adj.getNodes();
+    const AdjList& rev = adj.getReversed();
 
-    // ラベルの更新
-    for (int iter = 0; iter < maxIter; ++iter) {
-        std::map<std::pair<int, int>, int> updatedColor;
-        Encoder iterEnc;
+    std::vector<std::vector<int>> tuples = genTuples(nodes, k);
+    std::cout << "Generated " << tuples.size() << " tuples.\n";
 
-        for (int u : nodes) {
-            for (int v : nodes) {
-                std::string label = genLabelUpdate(u, v, color);
-                updatedColor[{u, v}] = iterEnc.encode(label);
-            }
+    // 初期ラベル生成
+    auto genLabelInit = [&](const std::vector<int>& S) -> std::string {
+        std::ostringstream oss;
+        for (int n : S)
+            oss << "(" << adj[n].size() << "," << rev[n].size() << ")-";
+
+        for (int i = 0; i < k; ++i)
+            for (int j = i + 1; j < k; ++j)
+                oss << (adj.hasEdge(S[i],S[j]) ? "T" : "F") << (rev.hasEdge(S[i],S[j]) ? "T" : "F") << "-";
+
+        return oss.str();
+    };
+
+    // 更新ラベル生成
+    auto genLabelUpdate = [&](const std::vector<int>& S, const std::unordered_map<std::vector<int>, int, VectorHash>& color) -> std::string {
+        NodeSet adjNodes;
+        for (int n : S) {
+            const auto& out = adj[n];
+            const auto& in  = rev[n];
+            adjNodes.insert(out.begin(), out.end());
+            adjNodes.insert(in.begin(), in.end());
         }
 
-        // std::cout << iterEnc.size() << std::endl;
+        std::vector<std::string> adjColors;
+        adjColors.reserve(adjNodes.size());
+
+        std::vector<int> Sx = S;
+        std::vector<int> sig;
+        sig.reserve(k);
+
+        for (int x : adjNodes) {
+            sig.clear();
+            for (int i = 0; i < k; ++i) {
+                Sx[i] = x;
+                sig.push_back(color.at(Sx));
+                Sx[i] = S[i];
+            }
+            adjColors.emplace_back("(" + Utils::join(sig, ",") + ")");
+        }
+
+        std::sort(adjColors.begin(), adjColors.end());
+
+        std::ostringstream oss;
+        oss << color.at(S) << ":";
+        for (const auto& s : adjColors)
+            oss << s << ",";
+
+        return oss.str();
+    };
+
+    std::unordered_map<std::vector<int>, int, VectorHash> color;
+    Encoder enc;
+    for (const auto& S : tuples)
+        color[S] = enc.encode(genLabelInit(S));
+
+    std::cout << "iter 0 : " << enc.size() << " colors\n";
+
+    for (int iter = 0; iter < maxIter; ++iter) {
+        std::unordered_map<std::vector<int>, int, VectorHash> updatedColor;
+        Encoder updateEnc;
+
+        for (const auto& S : tuples)
+            updatedColor[S] = updateEnc.encode(genLabelUpdate(S, color));
+
+        std::cout << "iter " << iter + 1 << " : " << updateEnc.size() << " colors\n";
 
         if (updatedColor == color)
             break;
