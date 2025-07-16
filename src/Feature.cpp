@@ -29,6 +29,160 @@ std::map<FeatSig, NodeSet> Feature::gen(const AdjList& adj) {
     return featToNodes;
 }
 
+struct State {
+    std::vector<int> map;
+    int cnt;
+
+    explicit State(int n) : 
+        map(n + 1, 0), cnt(0) {}
+
+    int& operator[](int v) { 
+        return map[v];
+    }
+
+    std::vector<int> ids(const NodeSet& ns) const {
+        std::vector<int> res;
+        for (int v : ns)
+            res.push_back(map[v]);
+        std::sort(res.begin(), res.end());
+        return res;
+    }
+};
+
+std::map<int, NodeSet> Feature::gen1WL(const AdjList& adj) {
+    const NodeSet nodes = adj.getNodes();
+    const AdjList rev = adj.getReversed();
+    const int N = Utils::max(nodes);
+
+    State state(N);
+    std::map<Degs, int> deg2id;
+
+    for (int v : nodes) {
+        Degs deg = { (int)adj[v].size(), (int)rev[v].size() };
+        auto [it, ins] = deg2id.emplace(deg, state.cnt);
+        if (ins) ++state.cnt;
+        state[v] = it->second;
+    }
+
+    while (true) {
+        State next(N);
+        std::map<std::tuple<int, std::vector<int>, std::vector<int>>, int> key2id;
+
+        for (int v : nodes) {
+            auto key = std::make_tuple(state[v], state.ids(adj[v]), state.ids(rev[v]));
+            auto [it, ins] = key2id.emplace(key, next.cnt);
+            if (ins) ++next.cnt;
+            next[v] = it->second;
+        }
+
+        if (next.cnt == state.cnt)
+            break;
+        
+        state = std::move(next);
+    }
+
+    std::map<int, NodeSet> res;
+    for (int v : nodes)
+        res[state[v]].insert(v);
+    
+    return res;
+}
+
+class Encoder {
+private:
+    std::unordered_map<std::string, int> table_;
+    int nextId_ = 0;
+
+public:
+    int encode(const std::string& label) {
+        auto [it, inserted] = table_.insert({label, nextId_});
+        if (inserted) ++nextId_;
+        return it->second;
+    }
+
+    int size() const { return nextId_; }
+};
+
+std::vector<int> Feature::gen2WL(const AdjList& adj, int maxIter) {
+    NodeSet nodes = adj.getNodes();
+    AdjList rev = adj.getReversed();
+
+    // 取得:出次数，入次数
+    auto deg = [&](int u) -> std::pair<int, int> {
+        return {(int)adj[u].size(), (int)rev[u].size()};
+    };
+
+    // 生成:初期ラベル
+    auto genLabelInit = [&](int u, int v) -> std::string {
+        auto [du_out, du_in] = deg(u);
+        auto [dv_out, dv_in] = deg(v);
+        return (u == v ? "T" : "F") + std::string("-") +
+               (adj.hasEdge(u, v) ? "T" : "F") + "-" +
+               std::to_string(du_out) + "-" + std::to_string(du_in) + "-" +
+               std::to_string(dv_out) + "-" + std::to_string(dv_in);
+    };
+
+    // 生成:更新ラベル
+    auto genLabelUpdate = [&](int u, int v, std::map<std::pair<int, int>, int>& color) -> std::string {
+        std::vector<int> outColors, inColors;
+        for (int x : adj[u]) outColors.push_back(color[{x,v}]);
+        for (int x : rev[v])  inColors.push_back(color[{u,x}]);
+
+        std::sort(outColors.begin(), outColors.end());
+        std::sort(inColors.begin(), inColors.end());
+
+        std::ostringstream sig;
+        sig << color[{u, v}] << "-";
+        for (int c : outColors) sig << c << ",";
+        sig << "-";
+        for (int c : inColors) sig << c << ",";
+        return sig.str();
+    };
+
+    // std::cout << std::endl << "2-WL" << std::endl;
+
+    // ラベルの初期化
+    std::map<std::pair<int, int>, int> color;
+    Encoder enc;
+
+    for (int u : nodes) {
+        for (int v : nodes) {
+            std::string label = genLabelInit(u, v);
+            color[{u, v}] = enc.encode(label);
+        }
+    }
+
+    // std::cout << enc.size() << std::endl;
+
+    // ラベルの更新
+    for (int iter = 0; iter < maxIter; ++iter) {
+        std::map<std::pair<int, int>, int> updatedColor;
+        Encoder iterEnc;
+
+        for (int u : nodes) {
+            for (int v : nodes) {
+                std::string label = genLabelUpdate(u, v, color);
+                updatedColor[{u, v}] = iterEnc.encode(label);
+            }
+        }
+
+        // std::cout << iterEnc.size() << std::endl;
+
+        if (updatedColor == color)
+            break;
+
+        color = std::move(updatedColor);
+    }
+
+    std::vector<int> result;
+    result.reserve(color.size());
+    for (const auto& [_, cid] : color)
+        result.push_back(cid);
+    std::sort(result.begin(), result.end());
+
+    return result;
+}
+
 struct StateQueue {
     using State = std::pair<int, int>;
 
