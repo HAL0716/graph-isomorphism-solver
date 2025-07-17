@@ -77,32 +77,52 @@ std::vector<int> Feature::genkWL(const AdjList& adj, int k, int maxIter) {
     const NodeSet& nodes = adj.getNodes();
     const AdjList& rev = adj.getReversed();
 
-    std::vector<std::vector<int>> tuples = genTuples(nodes, k);
-    std::cout << "Generated " << tuples.size() << " tuples.\n";
+    std::unordered_map<std::vector<int>, std::vector<int>, VectorHash> S2AdjNodes;
+
+    auto genAdjNodes = [&](const std::vector<int>& S) -> std::vector<int> {
+        std::unordered_set<int> seen;
+        std::vector<int> result;
+
+        for (int n : S) {
+            for (int v : adj[n])
+                if (seen.insert(v).second)
+                    result.push_back(v);
+            for (int v : rev[n])
+                if (seen.insert(v).second)
+                    result.push_back(v);
+        }
+
+        return result;
+    };
 
     // 初期ラベル生成
     auto genLabelInit = [&](const std::vector<int>& S) -> std::string {
-        std::ostringstream oss;
-        for (int n : S)
-            oss << "(" << adj[n].size() << "," << rev[n].size() << ")-";
+        const auto adjNodes = genAdjNodes(S);
+        S2AdjNodes.emplace(S, std::move(adjNodes));
 
-        for (int i = 0; i < k; ++i)
-            for (int j = i + 1; j < k; ++j)
-                oss << (adj.hasEdge(S[i],S[j]) ? "T" : "F") << (rev.hasEdge(S[i],S[j]) ? "T" : "F") << "-";
+        std::ostringstream oss;
+
+        for (int n : S)
+            oss << '(' << adj[n].size() << ',' << rev[n].size() << ")-";
+
+        for (int i = 0; i < k; ++i) {
+            int u = S[i];
+            for (int j = i + 1; j < k; ++j) {
+                int v = S[j];
+
+                oss << (adj.hasEdge(u, v) ? 'T' : 'F') << (rev.hasEdge(u, v) ? 'T' : 'F') << '-';
+            }
+        }
+
+        oss << adjNodes.size();
 
         return oss.str();
     };
 
     // 更新ラベル生成
     auto genLabelUpdate = [&](const std::vector<int>& S, const std::unordered_map<std::vector<int>, int, VectorHash>& color) -> std::string {
-        NodeSet adjNodes;
-        for (int n : S) {
-            const auto& out = adj[n];
-            const auto& in  = rev[n];
-            adjNodes.insert(out.begin(), out.end());
-            adjNodes.insert(in.begin(), in.end());
-        }
-
+        const auto& adjNodes = S2AdjNodes[S];
+        
         std::vector<std::string> adjColors;
         adjColors.reserve(adjNodes.size());
 
@@ -129,6 +149,9 @@ std::vector<int> Feature::genkWL(const AdjList& adj, int k, int maxIter) {
 
         return oss.str();
     };
+
+    const auto tuples = genTuples(nodes, k);
+    std::cout << "Generated " << tuples.size() << " tuples.\n";
 
     std::unordered_map<std::vector<int>, int, VectorHash> color;
     Encoder enc;
