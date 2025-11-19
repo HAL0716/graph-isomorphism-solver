@@ -35,3 +35,4 @@
 .vscode/
 /data/*
 !/data/test/
+build/
